@@ -31,6 +31,7 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
@@ -45,6 +46,7 @@ set(dependencies
     geometry_msgs
     nav_msgs
     rclcpp
+    rclcpp_lifecycle
     rclcpp_components
     rcutils
     rosbag2_cpp

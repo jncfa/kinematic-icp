@@ -35,6 +35,7 @@ SOFTWARE.
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
   <depend>rclcpp_components</depend>
   <depend>rcutils</depend>
   <depend>sensor_msgs</depend>
