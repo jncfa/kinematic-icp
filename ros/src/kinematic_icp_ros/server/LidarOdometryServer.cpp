@@ -89,9 +89,6 @@ LidarOdometryServer::LidarOdometryServer(rclcpp::Node::SharedPtr node) : node_(n
     config.voxel_size = node->declare_parameter<double>("voxel_size", config.max_range / 100.0);
     config.max_points_per_voxel =
         node->declare_parameter<int>("max_points_per_voxel", config.max_points_per_voxel);
-    config.initial_threshold =
-        node->declare_parameter<double>("initial_threshold", config.initial_threshold);
-    config.min_motion_th = node->declare_parameter<double>("min_motion_th", config.min_motion_th);
     config.max_num_iterations =
         node->declare_parameter<int>("max_num_iterations", config.max_num_iterations);
     config.convergence_criterion =

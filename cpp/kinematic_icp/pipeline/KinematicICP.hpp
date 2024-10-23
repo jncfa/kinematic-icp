@@ -36,14 +36,26 @@
 
 namespace kinematic_icp::pipeline {
 
-using Config = kiss_icp::pipeline::KISSConfig;
+struct Config {
+    // Scan Preprocessing Parameters
+    double max_range = 100.0;
+    double min_range = 0.0;
+    bool deskew = false;
+    // Mapping Parameters
+    double voxel_size = 1.0;
+    int max_points_per_voxel = 20;
+    // registration params
+    int max_num_iterations = 10;
+    double convergence_criterion = 0.001;
+    int max_num_threads = 0;
+};
 
 class KinematicICP {
 public:
     using Vector3dVector = std::vector<Eigen::Vector3d>;
     using Vector3dVectorTuple = std::tuple<Vector3dVector, Vector3dVector>;
 
-    explicit KinematicICP(const kiss_icp::pipeline::KISSConfig &config)
+    explicit KinematicICP(const Config &config)
         : registration_(
               config.max_num_iterations, config.convergence_criterion, config.max_num_threads),
           adaptive_threshold_(config.voxel_size / std::sqrt(config.max_points_per_voxel),
@@ -75,8 +87,8 @@ private:
     // Kinematic module
     KinematicRegistration registration_;
     AdaptiveThreshold adaptive_threshold_;
+    Config config_;
     // KISS-ICP pipeline modules
-    kiss_icp::pipeline::KISSConfig config_;
     kiss_icp::VoxelHashMap local_map_;
 };
 
