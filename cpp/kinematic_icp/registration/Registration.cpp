@@ -37,7 +37,7 @@
 #include <sophus/so3.hpp>
 #include <tuple>
 
-using LinearSystem = std::pair<Eigen::Matrix2d, Eigen::Vector2d>;
+using LinearSystem = std::pair<Eigen::Matrix3d, Eigen::Vector3d>;
 using Correspondences = std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>;
 
 namespace {
@@ -60,7 +60,7 @@ double ComputeOdometryRegularization(const Correspondences &associations,
 Correspondences DataAssociation(const std::vector<Eigen::Vector3d> &points,
                                 const kiss_icp::VoxelHashMap &voxel_map,
                                 const Sophus::SE3d &T,
-                                const double max_correspondance_distance) {
+                                const double max_correspondence_distance) {
     using points_iterator = std::vector<Eigen::Vector3d>::const_iterator;
     Correspondences associations;
     associations.reserve(points.size());
@@ -74,7 +74,7 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector3d> &points,
             res.reserve(r.size());
             std::for_each(r.begin(), r.end(), [&](const auto &point) {
                 const auto &[closest_neighbor, distance] = voxel_map.GetClosestNeighbor(T * point);
-                if (distance < max_correspondance_distance) {
+                if (distance < max_correspondence_distance) {
                     res.emplace_back(point, closest_neighbor);
                 }
             });
@@ -91,15 +91,16 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector3d> &points,
     return associations;
 }
 
-Eigen::Vector2d ComputePerturbation(const Correspondences &correspondences,
+Eigen::Vector3d ComputePerturbation(const Correspondences &correspondences,
                                     const Sophus::SE3d &current_estimate,
                                     const double beta) {
     auto compute_jacobian_and_residual = [&](const auto &correspondence) {
         const auto &[source, target] = correspondence;
         const Eigen::Vector3d residual = current_estimate * source - target;
-        Eigen::Matrix<double, 3, 2> J;
+        Eigen::Matrix3d J;
         J.col(0) = current_estimate.so3() * Eigen::Vector3d::UnitX();
-        J.col(1) = current_estimate.so3() * Eigen::Vector3d(-source.y(), source.x(), 0.0);
+        J.col(1) = current_estimate.so3() * Eigen::Vector3d::UnitY();
+        J.col(2) = current_estimate.so3() * Eigen::Vector3d(-source.y(), source.x(), 0.0);
         return std::make_tuple(J, residual);
     };
 
@@ -115,7 +116,7 @@ Eigen::Vector2d ComputePerturbation(const Correspondences &correspondences,
         tbb::blocked_range<correspondence_iterator>{correspondences.cbegin(),
                                                     correspondences.cend()},
         // Identity
-        LinearSystem(Eigen::Matrix2d::Zero(), Eigen::Vector2d::Zero()),
+        LinearSystem(Eigen::Matrix3d::Zero(), Eigen::Vector3d::Zero()),
         // 1st Lambda: Parallel computation
         [&](const tbb::blocked_range<correspondence_iterator> &r, LinearSystem J) -> LinearSystem {
             return std::transform_reduce(
@@ -129,7 +130,7 @@ Eigen::Vector2d ComputePerturbation(const Correspondences &correspondences,
         sum_linear_systems);
     const double num_correspondences = static_cast<double>(correspondences.size());
 
-    const Eigen::Matrix2d Omega = Eigen::Vector2d(beta, 0).asDiagonal();
+    const Eigen::Matrix3d Omega = Eigen::Vector3d(beta, 0, 0).asDiagonal();
     JTJ /= num_correspondences;
     JTr /= num_correspondences;
     JTJ += Omega;
@@ -163,13 +164,12 @@ Sophus::SE3d KinematicRegistration::ComputeRobotMotion(const std::vector<Eigen::
     Sophus::SE3d current_estimate = last_robot_pose * relative_wheel_odometry;
     if (voxel_map.Empty()) return current_estimate;
 
-    auto motion_model = [](const Eigen::Vector2d &integrated_controls) {
+    auto motion_model = [](const Eigen::Vector3d &integrated_controls) {
         Sophus::SE3d::Tangent dx = Sophus::SE3d::Tangent::Zero();
-        const double &displacement = integrated_controls(0);
-        const double &theta = integrated_controls(1);
-        dx(0) = displacement * std::sin(theta) / (theta + epsilon);
-        dx(1) = displacement * (1.0 - std::cos(theta)) / (theta + epsilon);
-        dx(5) = theta;
+        // fully actuated, pass the controls directly
+        dx(0) = integrated_controls(0);
+        dx(1) = integrated_controls(1);
+        dx(5) = integrated_controls(2);
         return Sophus::SE3d::exp(dx);
     };
     auto correspondences =
